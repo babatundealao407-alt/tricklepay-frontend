@@ -1,9 +1,19 @@
 import Link from "next/link";
-import type { StreamStatus, StreamView } from "@/types/stream";
-import { formatAmount, timeRemaining, truncateAddress } from "@/lib/format";
-import { STREAM_STATUS_META } from "@/lib/stream-status";
+import type { JSX } from "react";
 
-export function StreamTable({ streams }: { streams: StreamView[] }) {
+import { StreamStatusBadge } from "@/components/stream-status-badge";
+import { formatTokenAmount, truncateAddress } from "@/lib/format";
+import { formatRemaining } from "@/lib/schedule";
+import { markNavigatingToStream } from "@/lib/scroll";
+import type { StreamView } from "@/types/stream";
+
+export function StreamTable({
+  streams,
+  emptyMessage = "No streams yet.",
+}: {
+  streams: StreamView[];
+  emptyMessage?: string;
+}): JSX.Element {
   return (
     /* Horizontal scroll on narrow viewports so columns never get crushed */
     <div className="overflow-x-auto rounded-lg border border-neutral-800">
@@ -55,47 +65,50 @@ export function StreamTable({ streams }: { streams: StreamView[] }) {
           </tr>
         </thead>
         <tbody>
-          {streams.map((stream, idx) => (
+          {streams.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="px-4 py-8 text-center text-sm text-neutral-500">
+                {emptyMessage}
+              </td>
+            </tr>
+          ) : streams.map((stream, idx) => (
             <tr
               key={stream.id}
-              className={`border-b border-neutral-800/60 transition-colors last:border-b-0 hover:bg-neutral-800/40 ${
+              tabIndex={0}
+              className={`border-b border-neutral-800/60 transition-colors last:border-b-0 hover:bg-neutral-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-1 focus-visible:ring-offset-neutral-900 ${
                 idx % 2 === 0 ? "" : "bg-neutral-900/30"
               }`}
             >
               <td className="px-4 py-3">
                 <Link
                   href={`/streams/${stream.id}`}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      markNavigatingToStream(window.location.search);
+                    }
+                  }}
                   className="font-mono text-neutral-300 hover:text-neutral-100 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 rounded"
                 >
                   #{stream.id}
                 </Link>
               </td>
               <td className="px-4 py-3">
-                <span
-                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium capitalize ${STREAM_STATUS_META[stream.status].style}`}
-                >
-                  <span aria-hidden="true" className="text-[10px]">
-                    {STREAM_STATUS_META[stream.status].icon}
-                  </span>
-                  <span>{stream.status}</span>
-                </span>
+                <StreamStatusBadge status={stream.status} />
               </td>
-              <td className="px-4 py-3 font-mono text-xs text-neutral-300">
+              <td className="px-4 py-3 font-mono text-xs text-neutral-300 truncate max-w-[100px]">
                 {truncateAddress(stream.sender)}
               </td>
-              <td className="px-4 py-3 font-mono text-xs text-neutral-300">
+              <td className="px-4 py-3 font-mono text-xs text-neutral-300 truncate max-w-[100px]">
                 {truncateAddress(stream.recipient)}
               </td>
               <td className="px-4 py-3 text-right tabular-nums text-neutral-100">
-                {formatAmount(stream.withdrawable)}
+                {formatTokenAmount(stream.withdrawable, stream.token)}
               </td>
               <td className="px-4 py-3 text-right tabular-nums text-neutral-400">
-                {formatAmount(stream.totalAmount)}
+                {formatTokenAmount(stream.totalAmount, stream.token)}
               </td>
               <td className="px-4 py-3 text-xs text-neutral-500">
-                {stream.status === "streaming" || stream.status === "pending"
-                  ? timeRemaining(stream.endTime)
-                  : "—"}
+                {formatRemaining(stream) ?? "—"}
               </td>
             </tr>
           ))}
